@@ -6,8 +6,15 @@ from rest_framework import status
 from .serializers import EmailSerializer
 from .models import Email
 
-class PhishingCheckView(APIView):
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
+class PhishingCheckView(APIView):
+    @swagger_auto_schema(
+        operation_description="Check if the email content is phishing",
+        request_body=EmailSerializer,
+        responses={200: openapi.Response('result', EmailSerializer)}
+    )
     def post(self, request):
         serializer = EmailSerializer(data=request.data)
         if serializer.is_valid():

@@ -41,6 +41,9 @@ INSTALLED_APPS = [
     # django-rest-framework
     'rest_framework',
 
+    # drf_yasg (swagger)
+    'drf_yasg',
+
     # apps
     'api',
 ]
