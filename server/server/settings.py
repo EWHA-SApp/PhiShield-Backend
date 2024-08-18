@@ -27,6 +27,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = True
+
 
 # Application definition
 
@@ -37,6 +40,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # django-cors-headers
+    'corsheaders',
 
     # django-rest-framework
     'rest_framework',
