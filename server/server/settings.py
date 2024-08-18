@@ -30,6 +30,16 @@ ALLOWED_HOSTS = ['*']
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = True
 
+#HTTP methods 추가
+CORS_ALLOW_METHODS = (
+"DELETE",
+"GET",
+"OPTIONS",
+"PATCH",
+"POST",
+"PUT",
+)
+
 
 # Application definition
 
@@ -55,6 +65,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware', # CORS 관련 추가
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
