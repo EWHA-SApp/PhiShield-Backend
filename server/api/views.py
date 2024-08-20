@@ -22,16 +22,12 @@ class PhishingCheckView(APIView):
         if serializer.is_valid():
             email_data = serializer.validated_data
 
-            # 간단한 피싱 판별 로직 (가상의 예시)
-            # email_body = email_data['body']
-            # is_phishing = self.is_phishing(email_body)
             title=email_data.get('title')
             sender=email_data.get('sender')
             body=email_data.get('body')
             whole_data=email_data.get('whole_data')
             file=email_data.get('file')
             report=create_report(sender, title, body, whole_data, file)
-
 
             # Email 객체 생성 및 저장
             email_instance = Email(
@@ -45,7 +41,7 @@ class PhishingCheckView(APIView):
             )
             email_instance.save()
 
-            # 결과를 반환
+            # 결과 반환
             return Response({'report': report}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
