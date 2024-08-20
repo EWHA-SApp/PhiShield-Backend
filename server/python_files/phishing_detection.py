@@ -7,6 +7,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import os
 
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
 # Django 프로젝트의 루트 디렉토리를 직접 지정
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -368,6 +372,36 @@ def check_phishing_patterns(pcontent):
         return f"Phishing patterns detected: {', '.join(detected_patterns)}"
     else:
         return "No phishing patterns detected."
+    
+
+
+# Function to predict if pcontent is spam
+def predict_spam(pcontent):
+    # Load the pre-trained model
+    model_path = os.path.join(BASE_DIR, 'python_files/AI_model/spam_detection_lstm_model.h5')
+    model = load_model(model_path)
+
+    # Load tokenizer and set maxlen used during training
+    maxlen = 100  # Same as used during training
+
+    # Assuming that the tokenizer was trained on the training dataset
+    tokenizer = Tokenizer()
+    tokenizer.fit_on_texts([pcontent])  # Fit on the new content
+    # Convert the pcontent to a sequence
+    pcontent_seq = tokenizer.texts_to_sequences([pcontent])
+    
+    # Padding the sequence to match the length used in training
+    pcontent_pad = pad_sequences(pcontent_seq, padding='post', maxlen=maxlen)
+    
+    # Predicting using the loaded model
+    prediction = model.predict(pcontent_pad)
+    
+    # If prediction is greater than 0.5, it's classified as spam (since 1 = spam)
+    if prediction > 0.5:
+        return "The email content is classified as spam. Please be cautious."
+    else:
+        return "The email content is classified as non-spam."
+
 
 # Create the report DataFrame
 def create_report(psender, ptitle, pcontent, pwhole, pfile_ex):
@@ -387,7 +421,8 @@ def create_report(psender, ptitle, pcontent, pwhole, pfile_ex):
             'chk_hidden_text': [analyze_html_for_hidden_text(pwhole)],
             'chk_suspicious_links': [analyze_html_for_suspicious_links(pwhole, set(url_blacklist_df['bad_url'].values))],
             'chk_visual_similarity': [perform_visual_similarity_checks(psender, ptitle, pcontent, pwhole)],
-            'chk_phishing_patterns': [check_phishing_patterns(pcontent)]
+            'chk_phishing_patterns': [check_phishing_patterns(pcontent)],
+            'spam_classification': [predict_spam(pcontent)]
         })
     else:
         report_df = pd.DataFrame({
@@ -407,7 +442,8 @@ def create_report(psender, ptitle, pcontent, pwhole, pfile_ex):
             'chk_hidden_text': [analyze_html_for_hidden_text(pwhole)],
             'chk_suspicious_links': [analyze_html_for_suspicious_links(pwhole, set(url_blacklist_df['bad_url'].values))],
             'chk_visual_similarity': [perform_visual_similarity_checks(psender, ptitle, pcontent, pwhole)],
-            'chk_phishing_patterns': [check_phishing_patterns(pcontent)]
+            'chk_phishing_patterns': [check_phishing_patterns(pcontent)],
+            'spam_classification': [predict_spam(pcontent)]
         })
 
     return report_df
