@@ -29,6 +29,8 @@ class PhishingCheckView(APIView):
                 title=email_data.get('title'),
                 sender=email_data.get('sender'),
                 body=email_body,
+                whole_data=email_data.get('whole_data'),
+                file=email_data.get('file'),
                 is_phishing=is_phishing
             )
             email_instance.save()
