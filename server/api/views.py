@@ -24,6 +24,15 @@ class PhishingCheckView(APIView):
             email_body = email_data['body']
             is_phishing = self.is_phishing(email_body)
 
+            # Email 객체 생성 및 저장
+            email_instance = Email(
+                title=email_data.get('title'),
+                sender=email_data.get('sender'),
+                body=email_body,
+                is_phishing=is_phishing
+            )
+            email_instance.save()
+
             # 결과를 반환
             return Response({'is_phishing': is_phishing}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
