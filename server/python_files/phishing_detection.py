@@ -2,6 +2,9 @@ import pandas as pd
 import re
 from difflib import SequenceMatcher
 from bs4 import BeautifulSoup
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 import os
 
 # Django 프로젝트의 루트 디렉토리를 직접 지정
@@ -19,6 +22,149 @@ url_blacklist_df = pd.read_csv(url_blacklist_path)
 benign_site_df = pd.read_csv(benign_site_path)
 benign_domain_df = pd.read_csv(benign_domain_path)
 
+# Dictionary for visually similar characters
+similar_characters = {
+    '0': ['Ο', '〇'],  
+    '1': ['Ι', '𝟏'],  
+    '2': ['ƻ', 'ʒ'],            
+    '3': ['ɜ', 'З', 'Ξ'],   
+    '4': ['Ꮞ', '𐔡'],            
+    '5': ['Ƽ', '۵'],   
+    '6': ['ɢ'],        
+    '7': ['Γ', 'Ʇ'],       
+    '8': ['𝟾'],            
+    '9': ['զ'],       
+
+    'a': ['а', 'ɑ', 'ɒ', 'α', 'ａ'],  
+    'b': ['Ƅ', 'Ь', 'ɓ'],         
+    'c': ['с', '¢', 'ϲ', '𐐽'],        
+    'd': ['ԁ', 'ɗ'],              
+    'e': ['е', 'ɛ', '℮', '𝖾'],        
+    'f': ['ƒ', 'ſ', 'ғ'],              
+    'g': ['ɢ', 'զ', 'ɡ'],         
+    'h': ['һ', 'ḥ', 'հ'],             
+    'i': ['і', 'ı', 'ɩ', 'Ι'],         
+    'j': ['ј', 'ʝ', 'ϳ'],              
+    'k': ['κ', 'ϰ', '𝚔'],             
+    'l': ['ӏ', 'ⅼ', 'Ɩ'],         
+    'm': ['м'],             
+    'n': ['и', 'п', 'η'],              
+    'o': ['о', 'ο', 'օ', '𝓸'],        
+    'p': ['р', 'ρ', 'ƿ'],        
+    'q': ['ԛ', 'զ', 'գ'],             
+    'r': ['г', 'ř'],              
+    's': ['ѕ', 'ʂ', 'ş'],              
+    't': ['т', 'τ', 'ƫ', '𐔓'],        
+    'u': ['υ', 'ս'],             
+    'v': ['ѵ', 'ν'],             
+    'w': ['ѡ', 'ա', 'ԝ'],             
+    'x': ['х', 'χ'],              
+    'y': ['у', 'ү', 'ყ'],              
+    'z': ['ʐ', 'ƶ'],             
+
+    'A': ['А', 'Α', 'Ꭺ', 'ꓮ'],        
+    'B': ['Β', 'В'],                   
+    'C': ['С', 'Ϲ'],                   
+    'D': ['Ꭰ', 'Ⅾ'],                  
+    'E': ['Ε', 'Е'],                  
+    'F': ['Ϝ'],                       
+    'G': ['Ԍ'],                       
+    'H': ['Η', 'Н'],                  
+    'I': ['Ι', 'І'],                  
+    'J': ['Ј'],                       
+    'K': ['Κ', 'К'],                  
+    'L': ['Ꮮ', 'Ⅼ'],                  
+    'M': ['Μ', 'М'],                  
+    'N': ['Ν'],                       
+    'O': ['Ο', 'О'],                  
+    'P': ['Ρ', 'Р'],                   
+    'Q': ['Ԛ'],                       
+    'R': ['Ꭱ'],                       
+    'S': ['Ѕ'],                       
+    'T': ['Τ', 'Т'],                  
+    'U': ['Ս'],                       
+    'V': ['Ѵ'],                       
+    'W': ['Ԝ'],                       
+    'X': ['Χ', 'Х'],                  
+    'Y': ['Υ', 'Ү'],                  
+    'Z': ['Ζ'],                       
+}
+
+# Function to check for visually similar characters in a string
+def check_visual_similarity(text, similar_characters):
+    visually_similar = []
+    for char, similars in similar_characters.items():
+        for similar in similars:
+            if similar in text:
+                visually_similar.append((similar, char))
+    if visually_similar:
+        similar_report = ", ".join([f"'{char}' as '{similar}'" for similar, char in visually_similar])
+        return f"Visually similar characters found: {similar_report}"
+    else:
+        return "No visually similar characters found."
+
+# Perform visual similarity checks on psender, ptitle, pcontent, pwhole, and pfile_ex
+def perform_visual_similarity_checks(psender, ptitle, pcontent, pwhole):
+    results = []
+    results.append(f"psender visual similarity check: {check_visual_similarity(psender, similar_characters)}")
+    results.append(f"ptitle visual similarity check: {check_visual_similarity(ptitle, similar_characters)}")
+    results.append(f"pcontent visual similarity check: {check_visual_similarity(pcontent, similar_characters)}")
+    results.append(f"pwhole visual similarity check: {check_visual_similarity(pwhole, similar_characters)}")
+    return "\n".join(results)
+
+# Initialize separate vectorizers for site and domain
+site_vectorizer = TfidfVectorizer(analyzer='char', ngram_range=(3, 4))
+domain_vectorizer = TfidfVectorizer(analyzer='char', ngram_range=(3, 4))
+
+# Fit the model on benign site URLs
+benign_site_vectors = site_vectorizer.fit_transform(benign_site_df['benign_url'])
+
+# Function to check similarity between URLs in the content against benign sites using N-gram cosine similarity
+def check_site_similarity_ngram(pcontent, threshold=0.5):
+    site_addresses = extract_urls(pcontent)
+    similar_sites = set()  # Use a set to avoid duplicates
+
+    for site in site_addresses:
+        site_vector = site_vectorizer.transform([site])
+        similarities = cosine_similarity(site_vector, benign_site_vectors)
+        max_similarity = similarities.max()
+        if max_similarity >= threshold and max_similarity < 1.0:  # Exclude perfect matches
+            similar_sites.add(site)
+    
+    if similar_sites:
+        return f"Site similarity check result: Found similar site addresses to benign list using N-gram: {', '.join(similar_sites)}."
+    else:
+        return "Site similarity check result: No similar site addresses found to benign list using N-gram."
+
+# Fit the model on benign domains
+benign_domain_vectors = domain_vectorizer.fit_transform(benign_domain_df['benign_domain'])
+
+# Function to check similarity between email domains and benign domains using N-gram cosine similarity
+def check_domain_similarity_ngram(psender, pcontent, threshold=0.5):
+    domains_to_check = extract_domains([psender] + extract_emails(pcontent))
+    similar_domains = set()  # Use a set to avoid duplicates
+
+    for domain in domains_to_check:
+        domain_vector = domain_vectorizer.transform([domain])
+        similarities = cosine_similarity(domain_vector, benign_domain_vectors)
+        max_similarity = similarities.max()
+        if max_similarity >= threshold and max_similarity < 1.0:  # Exclude perfect matches
+            similar_domains.add(domain)
+    
+    if similar_domains:
+        return f"Domain similarity check result: Found similar domains to benign list using N-gram: {', '.join(similar_domains)}."
+    else:
+        return "Domain similarity check result: No similar domains found to benign list using N-gram."
+
+# Function to extract email addresses from the content
+def extract_emails(pcontent):
+    email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+    return email_pattern.findall(pcontent)
+
+# Function to extract domains from email addresses
+def extract_domains(emails):
+    return [email.split('@')[-1] for email in emails]
+
 # Function to check if the email or any email in the content is in the blacklist
 def check_bad_mail(psender, pcontent):
     if psender in email_blacklist_df['bad_mail'].values:
@@ -31,17 +177,8 @@ def check_bad_mail(psender, pcontent):
     
     return "Harmful email check result: No harmful emails found."
 
-# Function to extract email addresses from the content
-def extract_emails(pcontent):
-    email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
-    return email_pattern.findall(pcontent)
-
-# Function to extract domains from email addresses
-def extract_domains(emails):
-    return [email.split('@')[-1] for email in emails]
-
-# Function to check similarity between email domains and benign domains
-def check_domain_similarity(psender, pcontent, threshold=0.8):
+# Function to check similarity between email domains and benign domains using SequenceMatcher
+def check_domain_similarity(psender, pcontent, threshold=0.7):
     benign_domains = benign_domain_df['benign_domain'].values
     domains_to_check = extract_domains([psender] + extract_emails(pcontent))
     similar_domains = set()  # Use a set to avoid duplicates
@@ -59,11 +196,11 @@ def check_domain_similarity(psender, pcontent, threshold=0.8):
     else:
         return "Domain similarity check result: No similar domains found to benign list."
 
-# Function to check similarity between URLs in the content against benign sites
+# Function to check similarity between URLs in the content against benign sites using SequenceMatcher
 def check_site_similarity(pcontent, threshold=0.7):
     benign_sites = benign_site_df['benign_url'].values
     site_addresses = extract_urls(pcontent)
-    similar_site = set()  # Use a set to avoid duplicates
+    similar_sites = set()  # Use a set to avoid duplicates
     
     for site in site_addresses:
         if site in benign_sites:
@@ -71,10 +208,10 @@ def check_site_similarity(pcontent, threshold=0.7):
         for benign_site in benign_sites:
             similarity = SequenceMatcher(None, site, benign_site).ratio()
             if similarity >= threshold:
-                similar_site.add(site)  # Add to set to avoid duplicates
+                similar_sites.add(site)
     
-    if similar_site:
-        return f"Site similarity check result: Found similar site addresses to benign list: {', '.join(similar_site)}."
+    if similar_sites:
+        return f"Site similarity check result: Found similar site addresses to benign list: {', '.join(similar_sites)}."
     else:
         return "Site similarity check result: No similar site addresses found to benign list."
 
@@ -206,6 +343,32 @@ def analyze_html_for_suspicious_links(html_content, blacklist):
     else:
         return "No suspicious links found."
 
+# Function to check for phishing-related patterns in email content
+def check_phishing_patterns(pcontent):
+    patterns = [
+        "urgent", "account", "password", "verify", "credit card", "bank", "login",
+        "immediately", "click here", "social security", "ssn", "payment", "transfer",
+        "limited time", "important", "attention", "confirm", "identity", "security", 
+        "alert", "unlock", "reset", "fraud", "reactivate", "secure", "account verification",
+        "confidential", "update", "billing", "claim", "win", "congratulations", 
+        "you have been selected", "exclusive", "act now", "free", "gift", "refund", 
+        "donation", "lottery", "sweepstakes", "urgent response", "final notice", 
+        "time sensitive", "immediate attention", "penalty", "limited offer", 
+        "guaranteed", "urgent action", "overdue", "legal action", "prize", "in danger",
+        "safe", "trust", "locked", "deactivated", "unauthorized", "breach", "alert",
+        "update required", "take action", "last chance", "offer ends", "free trial", 
+        "final warning", "confidential information", "authorized", "terminate", 
+        "compromised", "gift card", "purchase", "receipt", "invoice", "transaction", 
+        "payment required", "payment overdue", "your account has been compromised"
+    ]
+
+    detected_patterns = [pattern for pattern in patterns if re.search(pattern, pcontent, re.IGNORECASE)]
+    
+    if detected_patterns:
+        return f"Phishing patterns detected: {', '.join(detected_patterns)}"
+    else:
+        return "No phishing patterns detected."
+
 # Create the report DataFrame
 def create_report(psender, ptitle, pcontent, pwhole, pfile_ex):
     if pfile_ex is None:
@@ -217,10 +380,14 @@ def create_report(psender, ptitle, pcontent, pwhole, pfile_ex):
             'chk_bad_mail': [check_bad_mail(psender, pcontent)],
             'chk_site_similarity': [check_site_similarity(pcontent)],
             'chk_domain_similarity': [check_domain_similarity(psender, pcontent)],
+            'chk_site_similarity_ngram': [check_site_similarity_ngram(pcontent)],
+            'chk_domain_similarity_ngram': [check_domain_similarity_ngram(psender, pcontent)],
             'chk_bad_urls': [check_bad_urls(pcontent)],
             'chk_suspicious_urls': [check_suspicious_urls(pcontent)],
             'chk_hidden_text': [analyze_html_for_hidden_text(pwhole)],
-            'chk_suspicious_links': [analyze_html_for_suspicious_links(pwhole, set(url_blacklist_df['bad_url'].values))]
+            'chk_suspicious_links': [analyze_html_for_suspicious_links(pwhole, set(url_blacklist_df['bad_url'].values))],
+            'chk_visual_similarity': [perform_visual_similarity_checks(psender, ptitle, pcontent, pwhole)],
+            'chk_phishing_patterns': [check_phishing_patterns(pcontent)]
         })
     else:
         report_df = pd.DataFrame({
@@ -229,14 +396,18 @@ def create_report(psender, ptitle, pcontent, pwhole, pfile_ex):
             'pcontent': [pcontent],
             'pwhole': [pwhole],
             'pfile_ex': [pfile_ex],
-                'chk_bad_mail': [check_bad_mail(psender, pcontent)],
+            'chk_bad_mail': [check_bad_mail(psender, pcontent)],
             'chk_site_similarity': [check_site_similarity(pcontent)],
             'chk_domain_similarity': [check_domain_similarity(psender, pcontent)],
+            'chk_site_similarity_ngram': [check_site_similarity_ngram(pcontent)],
+            'chk_domain_similarity_ngram': [check_domain_similarity_ngram(psender, pcontent)],
             'chk_bad_urls': [check_bad_urls(pcontent)],
             'chk_suspicious_urls': [check_suspicious_urls(pcontent)],
             'chk_suspicious_file_ex': [check_suspicious_file_extension(pfile_ex)],
             'chk_hidden_text': [analyze_html_for_hidden_text(pwhole)],
-            'chk_suspicious_links': [analyze_html_for_suspicious_links(pwhole, set(url_blacklist_df['bad_url'].values))]
+            'chk_suspicious_links': [analyze_html_for_suspicious_links(pwhole, set(url_blacklist_df['bad_url'].values))],
+            'chk_visual_similarity': [perform_visual_similarity_checks(psender, ptitle, pcontent, pwhole)],
+            'chk_phishing_patterns': [check_phishing_patterns(pcontent)]
         })
 
     return report_df
