@@ -104,13 +104,12 @@ def check_visual_similarity(text, similar_characters):
         return "No visually similar characters found."
 
 # Perform visual similarity checks on psender, ptitle, pcontent, pwhole, and pfile_ex
-def perform_visual_similarity_checks(psender, ptitle, pcontent, pwhole, pfile_ex):
+def perform_visual_similarity_checks(psender, ptitle, pcontent, pwhole):
     results = []
     results.append(f"psender visual similarity check: {check_visual_similarity(psender, similar_characters)}")
     results.append(f"ptitle visual similarity check: {check_visual_similarity(ptitle, similar_characters)}")
     results.append(f"pcontent visual similarity check: {check_visual_similarity(pcontent, similar_characters)}")
     results.append(f"pwhole visual similarity check: {check_visual_similarity(pwhole, similar_characters)}")
-    results.append(f"pfile_ex visual similarity check: {check_visual_similarity(pfile_ex, similar_characters)}")
     return "\n".join(results)
 
 # Initialize separate vectorizers for site and domain
@@ -387,7 +386,7 @@ def create_report(psender, ptitle, pcontent, pwhole, pfile_ex):
             'chk_suspicious_urls': [check_suspicious_urls(pcontent)],
             'chk_hidden_text': [analyze_html_for_hidden_text(pwhole)],
             'chk_suspicious_links': [analyze_html_for_suspicious_links(pwhole, set(url_blacklist_df['bad_url'].values))],
-            'chk_visual_similarity': [perform_visual_similarity_checks(psender, ptitle, pcontent, pwhole, pfile_ex)],
+            'chk_visual_similarity': [perform_visual_similarity_checks(psender, ptitle, pcontent, pwhole)],
             'chk_phishing_patterns': [check_phishing_patterns(pcontent)]
         })
     else:
@@ -407,7 +406,7 @@ def create_report(psender, ptitle, pcontent, pwhole, pfile_ex):
             'chk_suspicious_file_ex': [check_suspicious_file_extension(pfile_ex)],
             'chk_hidden_text': [analyze_html_for_hidden_text(pwhole)],
             'chk_suspicious_links': [analyze_html_for_suspicious_links(pwhole, set(url_blacklist_df['bad_url'].values))],
-            'chk_visual_similarity': [perform_visual_similarity_checks(psender, ptitle, pcontent, pwhole, pfile_ex)],
+            'chk_visual_similarity': [perform_visual_similarity_checks(psender, ptitle, pcontent, pwhole)],
             'chk_phishing_patterns': [check_phishing_patterns(pcontent)]
         })
 
