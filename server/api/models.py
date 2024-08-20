@@ -7,3 +7,4 @@ class Email(models.Model):
     sender = models.EmailField(null=True)
     body = models.TextField(null=True)
     is_phishing = models.BooleanField(null=True)
+    file = models.FileField(null=True, blank=True, upload_to='uploads/')
