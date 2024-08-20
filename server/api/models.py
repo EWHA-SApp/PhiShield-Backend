@@ -9,3 +9,4 @@ class Email(models.Model):
     whole_data = models.TextField(null=True)
     is_phishing = models.BooleanField(null=True)
     file = models.FileField(null=True, blank=True, upload_to='uploads/')
+    report = models.TextField(null=True, blank=True)

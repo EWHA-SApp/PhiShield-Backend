@@ -9,6 +9,8 @@ from .models import Email
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
+from python_files.phishing_detection import create_report
+
 class PhishingCheckView(APIView):
     @swagger_auto_schema(
         operation_description="Check if the email content is phishing",
@@ -21,26 +23,32 @@ class PhishingCheckView(APIView):
             email_data = serializer.validated_data
 
             # 간단한 피싱 판별 로직 (가상의 예시)
-            email_body = email_data['body']
-            is_phishing = self.is_phishing(email_body)
+            # email_body = email_data['body']
+            # is_phishing = self.is_phishing(email_body)
+            title=email_data.get('title')
+            sender=email_data.get('sender')
+            body=email_data.get('body')
+            whole_data=email_data.get('whole_data')
+            file=email_data.get('file')
+            report=create_report(sender, title, body, whole_data, file)
+
 
             # Email 객체 생성 및 저장
             email_instance = Email(
-                title=email_data.get('title'),
-                sender=email_data.get('sender'),
-                body=email_body,
-                whole_data=email_data.get('whole_data'),
-                file=email_data.get('file'),
-                is_phishing=is_phishing
+                title=title,
+                sender=sender,
+                body=body,
+                whole_data=whole_data,
+                file=file,
+                is_phishing=False,
+                report=report
             )
             email_instance.save()
 
             # 결과를 반환
-            return Response({'is_phishing': is_phishing}, status=status.HTTP_200_OK)
+            return Response({'report': report}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def is_phishing(self, text):
-        # 간단한 텍스트 기반 피싱 판별 (예시)
-        # 실제로는 훈련된 머신러닝/딥러닝 모델을 사용해야 함
-        phishing_keywords = ['urgent', 'click', 'login', 'verify']
-        return any(keyword in text.lower() for keyword in phishing_keywords)
+    def is_phishing(psender, ptitle, pcontent, pwhole, pfile_ex):
+        # models/phishing_check.py 파일에 있는 함수로 데이터 전달
+        return create_report(psender, ptitle, pcontent, pwhole, pfile_ex)
