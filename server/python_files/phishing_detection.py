@@ -2,21 +2,22 @@ import pandas as pd
 import re
 from difflib import SequenceMatcher
 from bs4 import BeautifulSoup
+import os
+
+# Django 프로젝트의 루트 디렉토리를 직접 지정
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 파일 경로를 BASE_DIR을 기준으로 생성
+email_blacklist_path = os.path.join(BASE_DIR, 'python_files/data/mail_list.csv')
+url_blacklist_path = os.path.join(BASE_DIR, 'python_files/data/url_list.csv')
+benign_site_path = os.path.join(BASE_DIR, 'python_files/data/benign_site_list.csv')
+benign_domain_path = os.path.join(BASE_DIR, 'python_files/data/benign_domain_list.csv')
 
 # Load the blacklist and benign lists from the CSV files
-email_blacklist_df = pd.read_csv('./data/mail_list/mail_list.csv')  # Adjust the file path if necessary
-url_blacklist_df = pd.read_csv('./data/url_list/url_list.csv')  # Adjust the file path if necessary
-benign_site_df = pd.read_csv('./data/benign_site_list/benign_site_list.csv')  # Load benign site list
-benign_domain_df = pd.read_csv('./data/benign_domain_list/benign_domain_list.csv')  # Load benign domain list
-
-# Example inputs (these would be passed to the function in practice)
-psender = "example@naver.c0m"
-ptitle = "Subject of the email"
-pcontent = "test@naver.com test@0utlook.kr Please visit https://www.naver.c0m and www.amaz0n.com for more details. Contact badguy@malicious.com."
-pwhole = """
-<div dir="ltr" style="display:none; visibility:hidden; font-size:0; color:transparent;"><strong>&quot;Hello Cleopatra, the best potato chips in the world<br>Hello Kleopatra potato<br><a rel="noopener" href="https://www.ewha.ac.kr/ewha/news/notice.do" style="display:none; visibility:hidden; font-size:0; color:transparent;">https://www.ewha.ac.kr/ewha/news/notice.do</a></strong>The Center for Educational Innovation is conducting a workshop on <strong>Communication Strategies</strong> that can be utilized in <strong>team projects</strong> and <strong>post-employment workplace scenarios</strong> for enrolled students.<br>We encourage all Ewha students to show great interest and participate. Click the poster image below or scan the QR code to be directed to the application page.2024-2 Workshop on Enhancing Convergence and Communication Competence: &quot;Practical Communication Strategies&quot; applicable for Team Projects and Post-Employment Workplace Scenarios Target Audience<pre style="display:none; visibility:hidden; font-size:0; color:transparent;"><div class="gmail-dark gmail-bg-gray-950 gmail-rounded-md gmail-border-[0.5px] gmail-border-token-border-medium"><div class="gmail-overflow-y-auto gmail-p-4" dir="ltr"><code class="gmail-!whitespace-pre gmail-hljs gmail-language-sql"><span class="gmail-hljs-number">60</span> undergraduate students (<span class="gmail-hljs-keyword">first</span><span class="gmail-hljs-operator">-</span>come, <span class="gmail-hljs-keyword">first</span><span class="gmail-hljs-operator">-</span>served basis)</code></div></div></pre> Method<pre style="display:none; visibility:hidden; font-size:0; color:transparent;"><div class="gmail-dark gmail-bg-gray-950 gmail-rounded-md gmail-border-[0.5px] gmail-border-token-border-medium"><div class="gmail-overflow-y-auto gmail-p-4" dir="ltr"><code class="gmail-!whitespace-pre gmail-hljs gmail-language-vbnet">Cyber Campus ZOOM online non-face-<span class="gmail-hljs-keyword">to</span>-face (The URL will be <span class="gmail-hljs-keyword">shared</span> the day before <span class="gmail-hljs-built_in">and</span> the morning <span class="gmail-hljs-keyword">of</span> the <span class="gmail-hljs-keyword">event</span>)</code></div></div></pre> Lecture Overview and Content<strong style="display:none; visibility:hidden; font-size:0; color:transparent;">&quot;</strong><a href="http://the.ewha.ac.kr/user/subject/nsubject/view.do?idx=8431&amp;tp=1" target="_blank"><img src="https://mailer.ewha.ac.kr:20058/html/mail_image/20240816164950971030.png" border="0" width="700" class="gmail-CToWUd"></a><br></div>
-"""
-pfile_ex = "testfile.exe"
+email_blacklist_df = pd.read_csv(email_blacklist_path)
+url_blacklist_df = pd.read_csv(url_blacklist_path)
+benign_site_df = pd.read_csv(benign_site_path)
+benign_domain_df = pd.read_csv(benign_domain_path)
 
 # Function to check if the email or any email in the content is in the blacklist
 def check_bad_mail(psender, pcontent):
@@ -206,27 +207,38 @@ def analyze_html_for_suspicious_links(html_content, blacklist):
         return "No suspicious links found."
 
 # Create the report DataFrame
-report_df = pd.DataFrame({
-    'psender': [psender],
-    'ptitle': [ptitle],
-    'pcontent': [pcontent],
-    'pwhole': [pwhole],
-    'pfile_ex': [pfile_ex],
-        'chk_bad_mail': [check_bad_mail(psender, pcontent)],
-    'chk_site_similarity': [check_site_similarity(pcontent)],
-    'chk_domain_similarity': [check_domain_similarity(psender, pcontent)],
-    'chk_bad_urls': [check_bad_urls(pcontent)],
-    'chk_suspicious_urls': [check_suspicious_urls(pcontent)],
-    'chk_suspicious_file_ex': [check_suspicious_file_extension(pfile_ex)],
-    'chk_hidden_text': [analyze_html_for_hidden_text(pwhole)],
-    'chk_suspicious_links': [analyze_html_for_suspicious_links(pwhole, set(url_blacklist_df['bad_url'].values))]
-})
+def create_report(psender, ptitle, pcontent, pwhole, pfile_ex):
+    if pfile_ex is None:
+        report_df = pd.DataFrame({
+            'psender': [psender],
+            'ptitle': [ptitle],
+            'pcontent': [pcontent],
+            'pwhole': [pwhole],
+            'chk_bad_mail': [check_bad_mail(psender, pcontent)],
+            'chk_site_similarity': [check_site_similarity(pcontent)],
+            'chk_domain_similarity': [check_domain_similarity(psender, pcontent)],
+            'chk_bad_urls': [check_bad_urls(pcontent)],
+            'chk_suspicious_urls': [check_suspicious_urls(pcontent)],
+            'chk_hidden_text': [analyze_html_for_hidden_text(pwhole)],
+            'chk_suspicious_links': [analyze_html_for_suspicious_links(pwhole, set(url_blacklist_df['bad_url'].values))]
+        })
+    else:
+        report_df = pd.DataFrame({
+            'psender': [psender],
+            'ptitle': [ptitle],
+            'pcontent': [pcontent],
+            'pwhole': [pwhole],
+            'pfile_ex': [pfile_ex],
+                'chk_bad_mail': [check_bad_mail(psender, pcontent)],
+            'chk_site_similarity': [check_site_similarity(pcontent)],
+            'chk_domain_similarity': [check_domain_similarity(psender, pcontent)],
+            'chk_bad_urls': [check_bad_urls(pcontent)],
+            'chk_suspicious_urls': [check_suspicious_urls(pcontent)],
+            'chk_suspicious_file_ex': [check_suspicious_file_extension(pfile_ex)],
+            'chk_hidden_text': [analyze_html_for_hidden_text(pwhole)],
+            'chk_suspicious_links': [analyze_html_for_suspicious_links(pwhole, set(url_blacklist_df['bad_url'].values))]
+        })
 
-# Custom print format: Print each column and its corresponding data
-for column in report_df.columns:
-    print(f"{column} : {report_df[column].values[0]}")
-
-# Optionally save the report to a CSV file
-report_df.to_csv('./report.csv', index=False)
+    return report_df
 
    
