@@ -27,7 +27,7 @@ class PhishingCheckView(APIView):
             body=email_data.get('body')
             whole_data=email_data.get('whole_data')
             file=email_data.get('file')
-            report=create_report(sender, title, body, whole_data, file)
+            report, result=create_report(sender, title, body, whole_data, file)
 
             # Email 객체 생성 및 저장
             email_instance = Email(
@@ -36,13 +36,13 @@ class PhishingCheckView(APIView):
                 body=body,
                 whole_data=whole_data,
                 file=file,
-                is_phishing=False,
+                is_phishing=result,
                 report=report
             )
             email_instance.save()
 
             # 결과 반환
-            return Response({'report': report}, status=status.HTTP_200_OK)
+            return Response({'report': report, 'is_phishing': result}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def is_phishing(psender, ptitle, pcontent, pwhole, pfile_ex):

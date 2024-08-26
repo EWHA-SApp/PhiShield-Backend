@@ -11,6 +11,8 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
+RESULT = True
+
 # Django 프로젝트의 루트 디렉토리를 직접 지정
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -378,7 +380,8 @@ def check_phishing_patterns(pcontent):
 # Function to predict if pcontent is spam
 def predict_spam(pcontent):
     # Load the pre-trained model
-    model_path = os.path.join(BASE_DIR, 'python_files/AI_model/spam_detection_lstm_model.h5')
+    global RESULT
+    model_path = os.path.join(BASE_DIR, 'python_files/spam_detection_lstm_model.h5')
     model = load_model(model_path)
 
     # Load tokenizer and set maxlen used during training
@@ -398,8 +401,10 @@ def predict_spam(pcontent):
     
     # If prediction is greater than 0.5, it's classified as spam (since 1 = spam)
     if prediction > 0.5:
+        RESULT = True
         return "The email content is classified as spam. Please be cautious."
     else:
+        RESULT = False
         return "The email content is classified as non-spam."
 
 
@@ -446,6 +451,4 @@ def create_report(psender, ptitle, pcontent, pwhole, pfile_ex):
             'spam_classification': [predict_spam(pcontent)]
         })
 
-    return report_df
-
-   
+    return report_df, RESULT
